@@ -31,35 +31,34 @@ public final class Constants {
     public static final String LEFT_CAMERA = "LeftCamera";
     public static final String RIGHT_CAMERA = "RightCamera";
 
-    // Robot Centric Transforms
-    public static final Transform3d ROBOT_TO_LEFT_CAMERA = new Transform3d(
+    public static final Transform3d LEFT_CAMERA_TO_SHOOTER = new Transform3d(
       new Translation3d(
-        Inches.of(6.5),
-        Inches.of(13.352),
-        Inches.of(15.378)
+        Inches.of(-17.5),
+        Inches.of(-3),
+        Inches.of(0.45)
       ),
       new Rotation3d(
         Degrees.of(0),
-        Degrees.of(30),
-        Degrees.of(90)
+        Degrees.of(-30),
+        Degrees.of(0)
       )
     );
-
-    public static final Transform3d ROBOT_TO_RIGHT_CAMERA = new Transform3d(
+    public static final Transform3d RIGHT_CAMERA_TO_SHOOTER = new Transform3d(
       new Translation3d(
-        Inches.of(6.5),
-        Inches.of(-13.352),
-        Inches.of(15.378)
+        Inches.of(-17.5),
+        Inches.of(-3),
+        Inches.of(0.45)
       ),
       new Rotation3d(
         Degrees.of(0),
-        Degrees.of(30),
-        Degrees.of(90)
+        Degrees.of(-30),
+        Degrees.of(0)
       )
     );
 
-    public static final Transform3d LEFT_CAMERA_TO_ROBOT = ROBOT_TO_LEFT_CAMERA.inverse();
-    public static final Transform3d RIGHT_CAMERA_TO_ROBOT = ROBOT_TO_RIGHT_CAMERA.inverse();
+    public static final Transform3d SHOOTER_TO_LEFT_CAMERA = LEFT_CAMERA_TO_SHOOTER.inverse();
+
+    public static final Transform3d SHOOTER_TO_RIGHT_CAMERA = RIGHT_CAMERA_TO_SHOOTER.inverse();
 
     public static final int BLUE_ALLIANCE_HUB_TAG = 26;
     public static final int RED_ALLIANCE_HUB_TAG = 10; // TODO: Update Tag ID

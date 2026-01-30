@@ -116,7 +116,7 @@ public class PointToHub extends Command {
             return;
         }
 
-        Transform3d robotToHub = null;
+        Transform3d shooterToHub = null;
 
         if (!leftResults.isEmpty()) {
             // Camera processed a new frame since last
@@ -132,24 +132,24 @@ public class PointToHub extends Command {
                     }
 
                     Transform3d cameraToTag = target.getBestCameraToTarget();
-                    Transform3d robotToCamera = Constants.Vision.ROBOT_TO_LEFT_CAMERA;
+                    Transform3d shooterToCamera = Constants.Vision.SHOOTER_TO_LEFT_CAMERA;
 
-                    robotToHub = robotToCamera.plus(cameraToTag).plus(tagToHub);
+                    shooterToHub = shooterToCamera.plus(cameraToTag).plus(tagToHub);
                     break;
                 }
             }
         }
 
-        if (robotToHub == null && rightResults.isEmpty() == false) {
+        if (shooterToHub == null && rightResults.isEmpty() == false) {
             var result = rightResults.get(rightResults.size() - 1);
             if (result.hasTargets()) {
                 // At least one AprilTag was seen by the camera
                 for (var target : result.getTargets()) {
                     if (target.getFiducialId() == tag) {
                         Transform3d cameraToTag = target.getBestCameraToTarget();
-                        Transform3d robotToCamera = Constants.Vision.ROBOT_TO_RIGHT_CAMERA;
+                        Transform3d shooterToCamera = Constants.Vision.SHOOTER_TO_RIGHT_CAMERA;
 
-                        robotToHub = robotToCamera.plus(cameraToTag).plus(tagToHub);
+                        shooterToHub = shooterToCamera.plus(cameraToTag).plus(tagToHub);
                         break;
                     }
                 }
@@ -157,13 +157,13 @@ public class PointToHub extends Command {
         }
 
 
-        if (robotToHub == null) {
+        if (shooterToHub == null) {
             control(this.yawOutput);
             return;
         }
 
-        double x = robotToHub.getTranslation().getX();
-        double y = robotToHub.getTranslation().getY();
+        double x = shooterToHub.getTranslation().getX();
+        double y = shooterToHub.getTranslation().getY();
         double targetYaw = Math.atan2(y, x);
 
         double currentYaw = drivetrain.getState().Pose.getRotation().getRadians();
