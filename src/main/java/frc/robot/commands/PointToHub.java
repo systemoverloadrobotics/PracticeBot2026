@@ -38,7 +38,7 @@ public class PointToHub extends Command {
     PhotonCamera leftCamera = new PhotonCamera(Constants.Vision.LEFT_CAMERA);
     PhotonCamera rightCamera = new PhotonCamera(Constants.Vision.RIGHT_CAMERA);
 
-    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.k2025ReefscapeWelded); // TODO: use 2026 field
+    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded); // TODO: use 2026 field
 
     PhotonPoseEstimator leftPoseEstimator = new PhotonPoseEstimator(
             layout,
