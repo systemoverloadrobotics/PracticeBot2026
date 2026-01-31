@@ -7,10 +7,13 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import java.util.Optional;
 
 import org.photonvision.PhotonCamera;
+import org.photonvision.PhotonPoseEstimator;
 
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
@@ -34,6 +37,18 @@ public class PointToHub extends Command {
 
     PhotonCamera leftCamera = new PhotonCamera(Constants.Vision.LEFT_CAMERA);
     PhotonCamera rightCamera = new PhotonCamera(Constants.Vision.RIGHT_CAMERA);
+
+    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.k2025ReefscapeWelded); // TODO: use 2026 field
+
+    PhotonPoseEstimator leftPoseEstimator = new PhotonPoseEstimator(
+            layout,
+            Constants.Vision.SHOOTER_TO_LEFT_CAMERA
+    );
+
+    PhotonPoseEstimator rightPoseEstimator = new PhotonPoseEstimator(
+            layout,
+            Constants.Vision.SHOOTER_TO_RIGHT_CAMERA
+    );
 
     ProfiledPIDController yawController;
 

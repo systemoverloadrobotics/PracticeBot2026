@@ -7,6 +7,7 @@ package frc.robot;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.commands.PointToHub;
 
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
@@ -35,6 +36,8 @@ public class RobotContainer {
 
   public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
+  public final PointToHub pointToHub = new PointToHub(drivetrain, joystick);
+
   public RobotContainer() {
 
     drivetrain.resetPose(new Pose2d(new Translation2d(0.0, 0.0), drivetrain.getRotation3d().toRotation2d()));
@@ -51,6 +54,7 @@ public class RobotContainer {
             .withRotationalRate(Math.pow(-joystick.getRightX(), 3) * MaxSpeed) // Drive
         ));
 
+    joystick.b().whileTrue(pointToHub);
   }
 
 }

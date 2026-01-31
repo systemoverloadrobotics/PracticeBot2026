@@ -46,7 +46,7 @@ public final class Constants {
     public static final Transform3d RIGHT_CAMERA_TO_SHOOTER = new Transform3d(
       new Translation3d(
         Inches.of(-17.5),
-        Inches.of(-3),
+        Inches.of(3),
         Inches.of(0.45)
       ),
       new Rotation3d(
@@ -61,7 +61,7 @@ public final class Constants {
     public static final Transform3d SHOOTER_TO_RIGHT_CAMERA = RIGHT_CAMERA_TO_SHOOTER.inverse();
 
     public static final int BLUE_ALLIANCE_HUB_TAG = 26;
-    public static final int RED_ALLIANCE_HUB_TAG = 10; // TODO: Update Tag ID
+    public static final int RED_ALLIANCE_HUB_TAG = 10;
 
     public static final Transform2d BLUE_ALLIANCE_TAG_TO_HUB = new Transform2d(
         Feet.of(1),
