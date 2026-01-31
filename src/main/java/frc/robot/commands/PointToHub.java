@@ -70,6 +70,8 @@ public class PointToHub extends Command {
 
         this.controller = controller;
 
+        this.drivetrain = drivetrain;
+
         Optional<Alliance> alliance = DriverStation.getAlliance();
 
         if (alliance.isEmpty()) {
@@ -102,8 +104,6 @@ public class PointToHub extends Command {
                             0.0,
                             t.getRotation().getRadians()));
         }
-
-        this.drivetrain = drivetrain;
 
         TrapezoidProfile.Constraints yawConstraints = new TrapezoidProfile.Constraints(1.33 * 0.75, 1.5 * 0.75);
         yawController = new ProfiledPIDController(7.0, 0, 0, yawConstraints);
@@ -201,7 +201,9 @@ public class PointToHub extends Command {
 
     @Override
     public void end(boolean interrupted) {
-        drivetrain.setControl(new SwerveRequest.FieldCentric().withRotationalRate(0));
+        if (drivetrain != null) {
+            drivetrain.setControl(new SwerveRequest.FieldCentric().withRotationalRate(0));
+        }
 
         super.end(interrupted);
     }
