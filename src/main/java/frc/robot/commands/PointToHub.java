@@ -33,12 +33,11 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.Constants;
 import frc.robot.Constants.Vision;
-import frc.robot.Robot;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 
 public class PointToHub extends Command {
-    
+
     public static enum Alignment {
         LEFT(0),
         RIGHT(180);
@@ -68,11 +67,19 @@ public class PointToHub extends Command {
     AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded); // TODO: use 2026
                                                                                                    // field
 
-    PhotonPoseEstimator leftPoseEstimator = new PhotonPoseEstimator(
+    PhotonPoseEstimator leftRobotPoseEstimator = new PhotonPoseEstimator(
+            layout,
+            Constants.Vision.ROBOT_TO_LEFT_CAMERA);
+
+    PhotonPoseEstimator rightRobotPoseEstimator = new PhotonPoseEstimator(
+            layout,
+            Constants.Vision.ROBOT_TO_RIGHT_CAMERA);
+
+    PhotonPoseEstimator leftShooterPoseEstimator = new PhotonPoseEstimator(
             layout,
             Constants.Vision.SHOOTER_TO_LEFT_CAMERA);
 
-    PhotonPoseEstimator rightPoseEstimator = new PhotonPoseEstimator(
+    PhotonPoseEstimator rightShooterPoseEstimator = new PhotonPoseEstimator(
             layout,
             Constants.Vision.SHOOTER_TO_RIGHT_CAMERA);
 
@@ -181,7 +188,7 @@ public class PointToHub extends Command {
                 // At least one AprilTag was seen by the camera
                 for (var target : result.getTargets()) {
 
-                    if (target.getFiducialId() != tag) {
+                    if (target.getFiducialId() != tag || target.getPoseAmbiguity() > 0.2) {
                         continue;
                     }
 
@@ -199,7 +206,7 @@ public class PointToHub extends Command {
             if (result.hasTargets()) {
                 // At least one AprilTag was seen by the camera
                 for (var target : result.getTargets()) {
-                    if (target.getFiducialId() == tag) {
+                    if (target.getFiducialId() == tag && target.getPoseAmbiguity() <= 0.2) {
                         Transform3d cameraToTag = target.getBestCameraToTarget();
                         Transform3d shooterToCamera = Constants.Vision.SHOOTER_TO_RIGHT_CAMERA;
 
@@ -227,10 +234,78 @@ public class PointToHub extends Command {
         control(this.yawOutput);
     }
 
+    public void multiTagStrategy() {
+        var leftResults = leftCamera.getAllUnreadResults();
+        var rightResults = rightCamera.getAllUnreadResults();
+
+        if (leftResults.isEmpty() && rightResults.isEmpty()) {
+            return;
+        }
+
+        Transform3d shooterToHub = null;
+
+        if (alignment.equals(Alignment.LEFT) && !leftResults.isEmpty()) {
+            // Camera processed a new frame since last
+            // Get the last one in the list.
+            var result = leftResults.get(leftResults.size() - 1);
+
+            if (result.hasTargets()) {
+                var visionEst = leftShooterPoseEstimator.estimateCoprocMultiTagPose(result);
+
+                if (visionEst.isEmpty()) {
+                    visionEst = leftShooterPoseEstimator.estimateLowestAmbiguityPose(result);
+                }
+
+                if (visionEst.isPresent()) {
+                    var fieldToShooter = visionEst.get().estimatedPose;
+                    var fieldToTag = layout.getTagPose(tag);
+
+                    var shooterToTag = new Transform3d(fieldToShooter, fieldToTag.get());
+                    shooterToHub = shooterToTag.plus(tagToHub);
+                }
+            }
+        }
+
+        if (alignment.equals(Alignment.RIGHT) && !rightResults.isEmpty()) {
+            var result = rightResults.get(rightResults.size() - 1);
+             if (result.hasTargets()) {
+                var visionEst = rightShooterPoseEstimator.estimateCoprocMultiTagPose(result);
+
+                if (visionEst.isEmpty()) {
+                    visionEst = rightShooterPoseEstimator.estimateLowestAmbiguityPose(result);
+                }
+
+                if (visionEst.isPresent()) {
+                    var fieldToShooter = visionEst.get().estimatedPose;
+                    var fieldToTag = layout.getTagPose(tag);
+
+                    var shooterToTag = new Transform3d(fieldToShooter, fieldToTag.get());
+                    shooterToHub = shooterToTag.plus(tagToHub);
+                }
+            }
+        }
+
+        if (shooterToHub == null) {
+            control(this.yawOutput);
+            return;
+        }
+
+        this.x_distance = shooterToHub.getTranslation().getMeasureX();
+        this.y_distance = shooterToHub.getTranslation().getMeasureY();
+        double targetYaw = Math.atan2(y_distance.in(Feet), x_distance.in(Feet));
+
+        double currentYaw = drivetrain.getState().Pose.getRotation().getRadians() - Math.toRadians(alignment.angle);
+
+        yawController.setGoal(targetYaw);
+        this.yawOutput = yawController.calculate(currentYaw);
+
+        control(this.yawOutput);
+    }
+
     @Override
     public void execute() {
-        updatePose(leftCamera, leftPoseEstimator);
-        updatePose(rightCamera, rightPoseEstimator);
+        updatePose(leftCamera, leftRobotPoseEstimator);
+        updatePose(rightCamera, rightRobotPoseEstimator);
 
         switch (strategy) {
             case SINGLE_TAG:
@@ -273,6 +348,7 @@ public class PointToHub extends Command {
 
             Pose2d visionPose = visionEst.get().estimatedPose.toPose2d();
 
+            // TODO: Scale vision x,y stdev by distance
             drivetrain.addVisionMeasurement(visionPose, Utils.fpgaToCurrentTime(visionEst.get().timestampSeconds),
                     Vision.DEFAULT_VISIONSTDEV.apply(result));
         }
