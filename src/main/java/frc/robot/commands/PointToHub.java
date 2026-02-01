@@ -1,33 +1,60 @@
 package frc.robot.commands;
 
+import static edu.wpi.first.units.Units.Feet;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import java.util.Optional;
 
+import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
+import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 
+import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.controller.ProfiledPIDController;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.Constants;
+import frc.robot.Constants.Vision;
+import frc.robot.Robot;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 
 public class PointToHub extends Command {
+    
+    public static enum Alignment {
+        LEFT(0),
+        RIGHT(180);
+
+        public final double angle;
+
+        Alignment(double angle) {
+            this.angle = angle;
+        }
+    }
+
+    public static enum Strategy {
+        SINGLE_TAG, // Use only one tag to align
+        MULTI_TAG, // Use multiple tags to align
+        FIELD // Use multiple tags and odometry to align
+    }
 
     public static double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top
                                                                                         // speed
@@ -38,17 +65,16 @@ public class PointToHub extends Command {
     PhotonCamera leftCamera = new PhotonCamera(Constants.Vision.LEFT_CAMERA);
     PhotonCamera rightCamera = new PhotonCamera(Constants.Vision.RIGHT_CAMERA);
 
-    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded); // TODO: use 2026 field
+    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded); // TODO: use 2026
+                                                                                                   // field
 
     PhotonPoseEstimator leftPoseEstimator = new PhotonPoseEstimator(
             layout,
-            Constants.Vision.SHOOTER_TO_LEFT_CAMERA
-    );
+            Constants.Vision.SHOOTER_TO_LEFT_CAMERA);
 
     PhotonPoseEstimator rightPoseEstimator = new PhotonPoseEstimator(
             layout,
-            Constants.Vision.SHOOTER_TO_RIGHT_CAMERA
-    );
+            Constants.Vision.SHOOTER_TO_RIGHT_CAMERA);
 
     ProfiledPIDController yawController;
 
@@ -66,11 +92,21 @@ public class PointToHub extends Command {
 
     public double yawOutput;
 
-    public PointToHub(CommandSwerveDrivetrain drivetrain, CommandXboxController controller) {
+    public Distance x_distance = Feet.of(0.0);
+    public Distance y_distance = Feet.of(0.0);
+
+    public Alignment alignment;
+    public Strategy strategy;
+
+    public PointToHub(CommandSwerveDrivetrain drivetrain, CommandXboxController controller, Alignment alignment,
+            Strategy strategy) {
 
         this.controller = controller;
 
         this.drivetrain = drivetrain;
+
+        this.alignment = alignment;
+        this.strategy = strategy;
 
         Optional<Alliance> alliance = DriverStation.getAlliance();
 
@@ -122,8 +158,11 @@ public class PointToHub extends Command {
         yawController.reset(drivePose.getRotation().getRadians(), driveSpeeds.omegaRadiansPerSecond);
     }
 
-    @Override
-    public void execute() {
+    public void changeStrategy(Strategy strategy) {
+        this.strategy = strategy;
+    }
+
+    public void singleTagStrategy() {
         var leftResults = leftCamera.getAllUnreadResults();
         var rightResults = rightCamera.getAllUnreadResults();
 
@@ -171,22 +210,45 @@ public class PointToHub extends Command {
             }
         }
 
-
         if (shooterToHub == null) {
             control(this.yawOutput);
             return;
         }
 
-        double x = shooterToHub.getTranslation().getX();
-        double y = shooterToHub.getTranslation().getY();
-        double targetYaw = Math.atan2(y, x);
+        this.x_distance = shooterToHub.getTranslation().getMeasureX();
+        this.y_distance = shooterToHub.getTranslation().getMeasureY();
+        double targetYaw = Math.atan2(y_distance.in(Feet), x_distance.in(Feet));
 
-        double currentYaw = drivetrain.getState().Pose.getRotation().getRadians();
+        double currentYaw = drivetrain.getState().Pose.getRotation().getRadians() - Math.toRadians(alignment.angle);
 
         yawController.setGoal(targetYaw);
         this.yawOutput = yawController.calculate(currentYaw);
 
         control(this.yawOutput);
+    }
+
+    @Override
+    public void execute() {
+        updatePose(leftCamera, leftPoseEstimator);
+        updatePose(rightCamera, rightPoseEstimator);
+
+        switch (strategy) {
+            case SINGLE_TAG:
+                singleTagStrategy();
+                break;
+            case MULTI_TAG:
+                // multiTagStrategy();
+                break;
+            case FIELD:
+                // fieldStrategy();
+                break;
+        }
+    }
+
+    public Distance getDistance() {
+        double x = this.x_distance.in(Feet);
+        double y = this.y_distance.in(Feet);
+        return Feet.of(Math.hypot(x, y));
     }
 
     public void control(double yawOutput) {
@@ -197,6 +259,23 @@ public class PointToHub extends Command {
 
         drivetrain.setControl(
                 drive);
+    }
+
+    public void updatePose(PhotonCamera camera, PhotonPoseEstimator photonEstimator) {
+        Optional<EstimatedRobotPose> visionEst = Optional.empty();
+
+        for (var result : camera.getAllUnreadResults()) {
+
+            visionEst = photonEstimator.estimateCoprocMultiTagPose(result);
+            if (visionEst.isEmpty()) {
+                visionEst = photonEstimator.estimateLowestAmbiguityPose(result);
+            }
+
+            Pose2d visionPose = visionEst.get().estimatedPose.toPose2d();
+
+            drivetrain.addVisionMeasurement(visionPose, Utils.fpgaToCurrentTime(visionEst.get().timestampSeconds),
+                    Vision.DEFAULT_VISIONSTDEV.apply(result));
+        }
     }
 
     @Override
