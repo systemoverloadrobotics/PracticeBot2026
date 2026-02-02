@@ -11,15 +11,21 @@ import frc.robot.commands.PointToHub;
 import frc.robot.commands.PointToHub.Alignment;
 import frc.robot.commands.PointToHub.Strategy;
 
+import static edu.wpi.first.units.Units.DegreesPerSecond;
+import static edu.wpi.first.units.Units.FeetPerSecond;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.units.AngularVelocityUnit;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 
 public class RobotContainer {
@@ -42,7 +48,7 @@ public class RobotContainer {
 
   public RobotContainer() {
 
-    drivetrain.resetPose(new Pose2d(new Translation2d(0.0, 0.0), drivetrain.getRotation3d().toRotation2d()));
+    drivetrain.resetPose(new Pose2d(new Translation2d(0.0, 0.0), new Rotation2d(0.0)));
 
     configureBindings();
   }
@@ -57,6 +63,6 @@ public class RobotContainer {
         ));
 
     joystick.b().whileTrue(pointToHub);
+    joystick.a().onFalse(Commands.runOnce(() -> pointToHub.resetTranslationPoseWithVision(), drivetrain));
   }
-
 }
