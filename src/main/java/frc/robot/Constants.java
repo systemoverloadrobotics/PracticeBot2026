@@ -88,6 +88,9 @@ public final class Constants {
             Degrees.of(0),
             Degrees.of(30),
             Degrees.of(-90)));
+  
+     public static final Transform3d ROBOT_TO_LEFT_SHOOTER = ROBOT_TO_LEFT_CAMERA.plus(LEFT_CAMERA_TO_SHOOTER);
+    public static final Transform3d ROBOT_TO_RIGHT_SHOOTER = ROBOT_TO_RIGHT_CAMERA.plus(RIGHT_CAMERA_TO_SHOOTER);
       
     public static final Transform3d LEFT_CAMERA_TO_ROBOT = ROBOT_TO_LEFT_CAMERA.inverse();
     public static final Transform3d RIGHT_CAMERA_TO_ROBOT = ROBOT_TO_RIGHT_CAMERA.inverse();

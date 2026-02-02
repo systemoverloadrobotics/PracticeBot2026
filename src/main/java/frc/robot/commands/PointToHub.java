@@ -302,6 +302,29 @@ public class PointToHub extends Command {
         control(this.yawOutput);
     }
 
+    public void fieldStrategy() {
+
+        var fieldToRobot = new Pose3d(drivetrain.getState().Pose);
+        var fieldToShooter = fieldToRobot.plus(Vision.ROBOT_TO_LEFT_SHOOTER);
+        if (alignment.equals(Alignment.RIGHT)) {
+            fieldToShooter = fieldToRobot.plus(Vision.ROBOT_TO_RIGHT_SHOOTER);
+        }
+        var fieldToHub = layout.getTagPose(tag).get().plus(tagToHub);
+
+        var shooterToHub = new Transform3d(fieldToShooter, fieldToHub);
+
+        this.x_distance = shooterToHub.getTranslation().getMeasureX();
+        this.y_distance = shooterToHub.getTranslation().getMeasureY();
+        double targetYaw = Math.atan2(y_distance.in(Feet), x_distance.in(Feet));
+
+        double currentYaw = drivetrain.getState().Pose.getRotation().getRadians() - Math.toRadians(alignment.angle);
+
+        yawController.setGoal(targetYaw);
+        this.yawOutput = yawController.calculate(currentYaw);
+
+        control(this.yawOutput);
+    }
+
     @Override
     public void execute() {
         updatePose(leftCamera, leftRobotPoseEstimator);
@@ -312,10 +335,10 @@ public class PointToHub extends Command {
                 singleTagStrategy();
                 break;
             case MULTI_TAG:
-                // multiTagStrategy();
+                multiTagStrategy();
                 break;
             case FIELD:
-                // fieldStrategy();
+                fieldStrategy();
                 break;
         }
     }
