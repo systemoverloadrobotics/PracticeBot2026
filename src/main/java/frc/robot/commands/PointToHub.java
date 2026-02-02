@@ -1,5 +1,6 @@
 package frc.robot.commands;
 
+import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Feet;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
@@ -17,6 +18,9 @@ import org.photonvision.targeting.PhotonTrackedTarget;
 
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
+
+import dev.doglog.DogLog;
+
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
@@ -33,6 +37,8 @@ import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.Constants;
@@ -98,7 +104,9 @@ public class PointToHub extends Command {
 
     Transform3d tagToHub;
 
-    // Align to this tag
+    private Field2d odometryField = new Field2d();
+
+    // Align to this tag (for single-tag strategy)
     public int tag;
 
     public double yawOutput;
@@ -350,6 +358,11 @@ public class PointToHub extends Command {
                 fieldStrategy();
                 break;
         }
+
+        odometryField.setRobotPose(drivetrain.getState().Pose);
+        SmartDashboard.putData("Swerve/OdometryPose", odometryField);
+
+        logPose();
     }
 
     public Distance getDistance() {
@@ -439,5 +452,15 @@ public class PointToHub extends Command {
             }
         }
 
+    }
+
+    public void logPose() {
+        DogLog.log("PointToHub/YawOutput", this.yawOutput);
+        DogLog.log("PointToHub/XDistanceFeet", this.x_distance.in(Feet), Feet);
+        DogLog.log("PointToHub/YDistanceFeet", this.y_distance.in(Feet), Feet);
+        DogLog.log("PointToHub/CurrentYawDegrees",
+                Math.toDegrees(drivetrain.getState().Pose.getRotation().getRadians()), Degrees);
+        DogLog.log("PointToHub/TargetYawDegrees",
+                Math.toDegrees(yawController.getGoal().position), Degrees);
     }
 }
