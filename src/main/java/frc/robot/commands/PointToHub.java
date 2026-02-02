@@ -5,12 +5,15 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonCamera;
 import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.PhotonPoseEstimator.PoseStrategy;
+import org.photonvision.targeting.PhotonPipelineResult;
+import org.photonvision.targeting.PhotonTrackedTarget;
 
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
@@ -23,6 +26,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.units.measure.Distance;
@@ -105,6 +109,9 @@ public class PointToHub extends Command {
     public Alignment alignment;
     public Strategy strategy;
 
+    public List<PhotonPipelineResult> leftResults;
+    public List<PhotonPipelineResult> rightResults;
+
     public PointToHub(CommandSwerveDrivetrain drivetrain, CommandXboxController controller, Alignment alignment,
             Strategy strategy) {
 
@@ -165,13 +172,16 @@ public class PointToHub extends Command {
         yawController.reset(drivePose.getRotation().getRadians(), driveSpeeds.omegaRadiansPerSecond);
     }
 
+    public void updateResults() {
+        this.leftResults = leftCamera.getAllUnreadResults();
+        this.rightResults = rightCamera.getAllUnreadResults();
+    }
+
     public void changeStrategy(Strategy strategy) {
         this.strategy = strategy;
     }
 
     public void singleTagStrategy() {
-        var leftResults = leftCamera.getAllUnreadResults();
-        var rightResults = rightCamera.getAllUnreadResults();
 
         if (leftResults.isEmpty() && rightResults.isEmpty()) {
             return;
@@ -235,8 +245,6 @@ public class PointToHub extends Command {
     }
 
     public void multiTagStrategy() {
-        var leftResults = leftCamera.getAllUnreadResults();
-        var rightResults = rightCamera.getAllUnreadResults();
 
         if (leftResults.isEmpty() && rightResults.isEmpty()) {
             return;
@@ -268,7 +276,7 @@ public class PointToHub extends Command {
 
         if (alignment.equals(Alignment.RIGHT) && !rightResults.isEmpty()) {
             var result = rightResults.get(rightResults.size() - 1);
-             if (result.hasTargets()) {
+            if (result.hasTargets()) {
                 var visionEst = rightShooterPoseEstimator.estimateCoprocMultiTagPose(result);
 
                 if (visionEst.isEmpty()) {
@@ -327,8 +335,7 @@ public class PointToHub extends Command {
 
     @Override
     public void execute() {
-        updatePose(leftCamera, leftRobotPoseEstimator);
-        updatePose(rightCamera, rightRobotPoseEstimator);
+        updateResults();
 
         switch (strategy) {
             case SINGLE_TAG:
@@ -338,6 +345,8 @@ public class PointToHub extends Command {
                 multiTagStrategy();
                 break;
             case FIELD:
+                updatePose(this.leftResults, leftRobotPoseEstimator);
+                updatePose(this.rightResults, rightRobotPoseEstimator);
                 fieldStrategy();
                 break;
         }
@@ -359,10 +368,10 @@ public class PointToHub extends Command {
                 drive);
     }
 
-    public void updatePose(PhotonCamera camera, PhotonPoseEstimator photonEstimator) {
+    public void updatePose(List<PhotonPipelineResult> results, PhotonPoseEstimator photonEstimator) {
         Optional<EstimatedRobotPose> visionEst = Optional.empty();
 
-        for (var result : camera.getAllUnreadResults()) {
+        for (var result : results) {
 
             visionEst = photonEstimator.estimateCoprocMultiTagPose(result);
             if (visionEst.isEmpty()) {
@@ -384,5 +393,51 @@ public class PointToHub extends Command {
         }
 
         super.end(interrupted);
+    }
+
+    public void resetTranslationPoseWithVision() {
+        if (alignment.equals(Alignment.LEFT)) {
+            resetTranslationPoseWithVision(this.leftResults, leftRobotPoseEstimator);
+        } else {
+            resetTranslationPoseWithVision(this.rightResults, rightRobotPoseEstimator);
+        }
+    }
+
+    public void resetTranslationPoseWithVision(List<PhotonPipelineResult> results, PhotonPoseEstimator poseEstimator) {
+        if (drivetrain == null) {
+            return;
+        }
+
+        var speeds = drivetrain.getState().Speeds;
+        if (speeds.omegaRadiansPerSecond > 0.5 || speeds.omegaRadiansPerSecond < -0.5 || speeds.vxMetersPerSecond > 1.0
+                || speeds.vxMetersPerSecond < -1.0 || speeds.vyMetersPerSecond > 1.0
+                || speeds.vyMetersPerSecond < -1.0) {
+            System.out.println("ERROR: Robot is moving too fast to reset pose with vision.");
+            return;
+        }
+
+        if (results.isEmpty()) {
+            System.out.println("ERROR: No vision results to reset pose with.");
+            return;
+        }
+
+        var result = results.get(results.size() - 1);
+
+        if (result.hasTargets()) {
+            var visionEst = poseEstimator.estimateCoprocMultiTagPose(result);
+
+            if (visionEst.isEmpty()) {
+                visionEst = poseEstimator.estimateLowestAmbiguityPose(result);
+            }
+
+            if (visionEst.isPresent()) {
+                var fieldToRobot = visionEst.get().estimatedPose;
+
+                drivetrain.resetTranslation(new Translation2d(
+                        fieldToRobot.getX(),
+                        fieldToRobot.getY()));
+            }
+        }
+
     }
 }
