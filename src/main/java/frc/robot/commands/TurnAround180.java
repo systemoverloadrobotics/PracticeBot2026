@@ -61,7 +61,7 @@ public class TurnAround180 extends Command {
     Rotation2d currentRot = drivetrain.getState().Pose.getRotation();
     double angleDifference = currentRot.getDegrees() - targetRotation.getDegrees();
     angleDifference  = Math.IEEEremainder(angleDifference, 360);
-    return (Math.abs(angleDifference) <= 1);
+    return (Math.abs(angleDifference) <= 5);
   }
 
   @Override
